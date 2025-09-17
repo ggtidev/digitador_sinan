@@ -3,19 +3,10 @@ import os
 import pyautogui
 import time
 
-# Garante que o Python encontre os módulos da pasta raiz do projeto (3_sinan_rpa)
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 from utils import wait_and_click, get_usuario_ativo, formatar_unidade_saude, calcular_idade_formatada
 from api_client import atualizar_status
 from logger import log_info, log_debug, log_erro
-
-# Caminho absoluto da pasta de imagens
-IMAGENS_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "imagens")
-)
-print("Pasta de imagens usada:", IMAGENS_DIR)
-
 
 primeira_execucao = True
 pyautogui.PAUSE = 0.3
@@ -35,17 +26,14 @@ def executar_violencia(item, reaproveitar_sessao=False, tem_proxima=False):
 
         log_info("Preenchimento completo. Tentando salvar formulário.")
         time.sleep(2)
-
-        # Usa caminho absoluto para salvar.png
-        if wait_and_click(os.path.join(IMAGENS_DIR, "salvar.png"), timeout=15):
+        if wait_and_click("imagens/salvar.png", timeout=15):
             log_info("Clicado em salvar. Aguardando confirmação.")
         else:
             log_erro("Não conseguiu clicar em salvar.")
             raise Exception("Botão 'Salvar' não encontrado.")
 
         time.sleep(2)
-        # Usa caminho absoluto para ok.png
-        if wait_and_click(os.path.join(IMAGENS_DIR, "ok.png"), timeout=10):
+        if wait_and_click("imagens/ok.png", timeout=10):
             log_info("Primeiro 'ok' clicado com sucesso.")
         else:
             log_erro("Não encontrou a primeira janela 'ok'.")
@@ -54,7 +42,7 @@ def executar_violencia(item, reaproveitar_sessao=False, tem_proxima=False):
         time.sleep(2)
         log_info("Verificando existência da segunda confirmação ('ok').")
         try:
-            if wait_and_click(os.path.join(IMAGENS_DIR, "ok.png"), timeout=5):
+            if wait_and_click("imagens/ok.png", timeout=5):
                 log_info("Segundo 'ok' clicado com sucesso.")
             else:
                 log_info("Segunda janela 'ok' não apareceu. Continuando sem clicar.")
@@ -63,7 +51,7 @@ def executar_violencia(item, reaproveitar_sessao=False, tem_proxima=False):
 
         time.sleep(2)
         log_info("Aguardando janela 'Deseja incluir nova notificação?'.")
-        if wait_and_click(os.path.join(IMAGENS_DIR, "novo_ou_nao.png"), timeout=15):
+        if wait_and_click("imagens/novo_ou_nao.png", timeout=15):
             log_info("Encontrada tela 'Deseja incluir nova notificação?'.")
             time.sleep(1)
             if tem_proxima:
@@ -94,18 +82,18 @@ def executar_violencia(item, reaproveitar_sessao=False, tem_proxima=False):
 
 def abrir_sinan():
     pyautogui.press("win")
-    time.sleep(2)
     pyautogui.write("sinan")
-    time.sleep(2)
     pyautogui.press("enter")
-    time.sleep(6)
+    # time.sleep(3) #pc_andre
+    time.sleep(6) #pc_indra
 
 def login(usuario, senha):
     pyautogui.write(usuario)
     pyautogui.press("tab")
     pyautogui.write(senha)
     pyautogui.press("enter")
-    time.sleep(4)
+    # time.sleep(2) #pc_andre
+    time.sleep(4) #pc_indra
 
 def selecionar_agravo(nome_agravo):
     pyautogui.click(x=72, y=59)
@@ -113,7 +101,8 @@ def selecionar_agravo(nome_agravo):
     pyautogui.press("enter")
     time.sleep(1)
     pyautogui.press("enter")
-    time.sleep(6)
+    # time.sleep(3) #pc_andre
+    time.sleep(6) #pc_indra
 
 def preencher_bloco_notificacao(campos, num_notificacao):
     log_debug(f"Campos notificação: {campos}")
@@ -172,54 +161,25 @@ def preencher_bloco_notificacao(campos, num_notificacao):
         pyautogui.write(f"%{campos['distrito_residencia']}%")
     pyautogui.press("tab")
     if campos.get('bairro_residencia'):
-        pyautogui.write(campos['bairro_residencia']) # Pergunta 22
-        pyautogui.press("esc")
+        pyautogui.write(campos['bairro_residencia'])
+        # pyautogui.press("esc")
     pyautogui.press("tab")
-
-    
-    if campos.get('endereco_residencia'): 
-        pyautogui.write(campos['endereco_residencia']) # Pergunta 23.0
-    
-    # Ao inves de ser tab tem que ser um click(x=685, y=507) para ir para o campo Codigo
-    log_info("Clicando para focar no campo 'Código' (x=685, y=507).")
-    pyautogui.click(x=685, y=507)
-    time.sleep(0.5)
-    
-    log_debug("Pulando campo Código (vazio).")
+    if campos.get('endereco_residencia'):
+        pyautogui.write(campos['endereco_residencia'])
     pyautogui.press("tab")
-    # Preenche o campo "Código" que estava faltando
-    #if campos.get('codigo_residencia'):
-     #   pyautogui.write(campos['codigo_residencia'])
-    #pyautogui.press("tab")
-    
     if campos.get('numero_residencia'):
-        pyautogui.write(campos['numero_residencia']) # Pergunta 24
+        pyautogui.write(campos['numero_residencia'])
     pyautogui.press("tab")
-
     if campos.get('complemento_residencia'):
         pyautogui.write(campos['complemento_residencia'])
-    pyautogui.press("tab") # Após o complemento, um TAB vai para Geocampo1
-
-    # Pula os campos "Geocampo1" e "Geocampo2", que sempre vêm vazios
-    log_debug("Pulando campo Geocampo1 (vazio).")
-    pyautogui.press("tab")
-    log_debug("Pulando campo Geocampo2 (vazio).")
-    pyautogui.press("tab")
+    pyautogui.press("tab", presses=3)
     
-    # Preenche os campos "Geocampo1" e "Geocampo2" que estavam faltando
-    #if campos.get('geocampo1_residencia'):
-    #    pyautogui.write(campos['geocampo1_residencia'])
-    #pyautogui.press("tab")
-
-    #if campos.get('geocampo2_residencia'):
-    #    pyautogui.write(campos['geocampo2_residencia'])
-    #pyautogui.press("tab")
+    #faltando os campos "Código" , "Geocampo1" e "Geocampo2"
     
     if campos.get('ponto_referencia'):
         pyautogui.write(campos['ponto_referencia'])
     pyautogui.press("tab")
-
-    if campos.get('cep_residencia'): # Pergunta 29
+    if campos.get('cep_residencia'):
         pyautogui.write(campos['cep_residencia'])
     pyautogui.press("tab") 
     telefone = campos.get('telefone', '')
@@ -231,7 +191,7 @@ def preencher_bloco_notificacao(campos, num_notificacao):
     else:
         pyautogui.press("tab", presses=2)
     if campos.get('zona'):
-        pyautogui.write(campos['zona'])
+        pyautogui.write(campos['zona']) #não achei nehnuma informação sobre esse campo, no arquivo .json não tem nada
     pyautogui.press("tab")
     log_debug(f"Idade calculada/fornecida: {idade}")
     return idade
@@ -243,7 +203,7 @@ def preencher_bloco_investigacao(campos, idade):
         pyautogui.write(f"%{campos['ocupacao']}%")
         pyautogui.press("tab")
         pyautogui.press("enter")    
-    pyautogui.press("tab")
+    pyautogui.press("tab") # apos da enter essta indo para pergunta 38 ( verificar isso ?), as perguntas 35,36,37 estão vindo preenchidas automaticamente
     if idade > 11 and campos.get('estado_civil'):
         pyautogui.write(campos['estado_civil'])
         pyautogui.press("tab")
@@ -341,12 +301,12 @@ def preencher_bloco_investigacao(campos, idade):
     pyautogui.press("tab")
     pyautogui.write(campos['intervencao_legal'])
     pyautogui.press("tab")
-    pyautogui.write(campos['outro_tipo_violencia']) 
+    pyautogui.write(campos['outro_tipo_violencia'])
     pyautogui.press("tab")
     if campos.get('outro_tipo_violencia') == "1":
         pyautogui.write(campos['esp_outro_tipo_violencia'])
         pyautogui.press("tab")
-    pyautogui.write(campos['forca_corporal_espancamento']) # pergunta 57.1
+    pyautogui.write(campos['forca_corporal_espancamento'])
     pyautogui.press("tab")
     pyautogui.write(campos['enforcamento'])
     pyautogui.press("tab")
@@ -360,76 +320,64 @@ def preencher_bloco_investigacao(campos, idade):
     pyautogui.press("tab")
     pyautogui.write(campos['arma_fogo'])
     pyautogui.press("tab")
-    pyautogui.write(campos['ameaca']) # pergunta 57.8
+    pyautogui.write(campos['ameaca'])
     pyautogui.press("tab")
-    # pergunta 57.9 - (x=671, y=505) ou (x=671, y=359)
-     # --- INÍCIO DA LÓGICA CORRIGIDA ---
     pyautogui.write(campos['outro_meio_agressao'])
-    time.sleep(2.5)
+    time.sleep(0.5)
     if primeira_execucao:
         pyautogui.press("tab")
         pyautogui.click(x=671, y=505)
-        time.sleep(2.5)
+        time.sleep(0.5)
 
     if campos.get('outro_meio_agressao') == "1":
         pyautogui.press("tab")
         pyautogui.write(campos['esp_outro_meio_agressao'])
     pyautogui.press("tab")
-    # --- FIM DA LÓGICA CORRIGIDA ---    
     time.sleep(2.0)
-    pyautogui.write(campos['numero_envolvidos']) # pergunta 60
+    pyautogui.write(campos['numero_envolvidos'])
     pyautogui.press("tab")
-    pyautogui.write(campos['pai']) # pergunta 60.1
+    pyautogui.write(campos['pai'])
     pyautogui.press("tab")
-    pyautogui.write(campos['mae'])  # pergunta 60.2
+    pyautogui.write(campos['mae'])
     pyautogui.press("tab")
-    pyautogui.write(campos['padrasto'])  # pergunta 60.3
+    pyautogui.write(campos['padrasto'])
     pyautogui.press("tab")
-    pyautogui.write(campos['madrasta'])  # pergunta 60.4
+    pyautogui.write(campos['madrasta'])
     pyautogui.press("tab")
-    pyautogui.write(campos['conjuge_parceiro'])  # pergunta 60.5
+    pyautogui.write(campos['conjuge_parceiro'])
     pyautogui.press("tab")
-    pyautogui.write(campos['ex_conjuge_parceiro'])  # pergunta 60.6
+    pyautogui.write(campos['ex_conjuge_parceiro'])
     pyautogui.press("tab")
-    pyautogui.write(campos['namorado'])  # pergunta 60.7
+    pyautogui.write(campos['namorado'])
     pyautogui.press("tab")
-    pyautogui.write(campos['ex_namorado']) # pergunta 60.8
+    pyautogui.write(campos['ex_namorado'])
     pyautogui.press("tab")
-    pyautogui.write(campos['filho']) # pergunta 60.9
+    pyautogui.write(campos['filho'])
     pyautogui.press("tab")
-    pyautogui.write(campos['irmao']) # pergunta 60.10
+    pyautogui.write(campos['irmao'])
     pyautogui.press("tab")
-    pyautogui.write(campos['amigos_conhecidos']) # pergunta 60.11
+    pyautogui.write(campos['amigos_conhecidos'])
     pyautogui.press("tab")
-    pyautogui.write(campos['desconhecido']) # pergunta 60.12
+    pyautogui.write(campos['desconhecido'])
     pyautogui.press("tab")
-    pyautogui.write(campos['cuidador']) # pergunta 60.13
+    pyautogui.write(campos['cuidador'])
     pyautogui.press("tab")
-    pyautogui.write(campos['patrao_chefe']) # pergunta 60.14
+    pyautogui.write(campos['patrao_chefe'])
     pyautogui.press("tab")
-    pyautogui.write(campos['pessoa_relacao_instituicao']) # pergunta 60.15
+    pyautogui.write(campos['pessoa_relacao_instituicao'])
     pyautogui.press("tab")
-    pyautogui.write(campos['policial_agente']) # pergunta 60.16
+    pyautogui.write(campos['policial_agente'])
     pyautogui.press("tab")
-    pyautogui.write(campos['propria_pessoa'])   # pergunta 60.17
+    pyautogui.write(campos['propria_pessoa'])
     pyautogui.press("tab")
-    # Vim um if aqui para verificar a condição e preencher o campo de descrição se necessário
-    
-    outros_envolvidos_valor = campos.get('outros_envolvidos', '2')
-    pyautogui.write(outros_envolvidos_valor)
-    if outros_envolvidos_valor == "1":
-        pyautogui.press("tab") # Entra no campo de descrição
-        log_debug("Preenchendo descrição de 'Outros envolvidos'.")
-        pyautogui.write(campos.get('esp_outros_envolvidos', ''))
-        pyautogui.press("tab") # Sai do campo de descrição e vai para 'sexo_agressor'
-    else:
-        # Se for "2" ou "9", um TAB vai direto para 'sexo_agressor'
+    pyautogui.write(campos['outros_envolvidos'])
+    pyautogui.press("tab")
+    if campos.get('outros_envolvidos') == "1":
+        pyautogui.write(campos['esp_outros_envolvidos'])
         pyautogui.press("tab")
-
-    log_debug("Preenchendo o campo 'sexo_agressor'.")
     if campos.get('sexo_agressor'):
         pyautogui.write(campos['sexo_agressor'])
-    pyautogui.press("tab") # Vai para o campo 'Suspeita de uso de álcool'
+    pyautogui.press("tab")
     pyautogui.write(campos['suspeita_alcool'])
     pyautogui.press("tab")
     pyautogui.write(campos['ciclo_vida_autor'])
@@ -473,4 +421,3 @@ def preencher_bloco_investigacao(campos, idade):
     pyautogui.press("tab")
     if campos.get('observacoes'):
         pyautogui.write(campos['observacoes'])
-

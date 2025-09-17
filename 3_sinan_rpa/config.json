@@ -1,0 +1,13 @@
+{
+  "botoes": {
+    "salvar": "imagens/salvar.png",
+    "ok": "imagens/ok.png",
+    "menu_agravo": "imagens/menu_agravo.png" 
+  },
+  "telas": {
+    "tela_login": "imagens/tela_login.png",
+    "tela_principal": "imagens/tela_principal.png",
+    "tela_notificacao_individual": "imagens/tela_notificacao_individual.png",
+    "tela_novo_ou_nao": "imagens/novo_ou_nao.png"
+  }
+}

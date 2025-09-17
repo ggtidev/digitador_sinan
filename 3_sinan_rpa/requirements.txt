@@ -4,3 +4,8 @@ pillow
 opencv-python
 python-dotenv
 requests
+keyboard
+
+
+
+

@@ -10,13 +10,6 @@ from utils import wait_and_click, get_usuario_ativo, formatar_unidade_saude, cal
 from api_client import atualizar_status
 from logger import log_info, log_debug, log_erro
 
-# Caminho absoluto da pasta de imagens
-IMAGENS_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "imagens")
-)
-print("Pasta de imagens usada:", IMAGENS_DIR)
-
-
 primeira_execucao = True
 pyautogui.PAUSE = 0.3
 
@@ -35,17 +28,14 @@ def executar_violencia(item, reaproveitar_sessao=False, tem_proxima=False):
 
         log_info("Preenchimento completo. Tentando salvar formulário.")
         time.sleep(2)
-
-        # Usa caminho absoluto para salvar.png
-        if wait_and_click(os.path.join(IMAGENS_DIR, "salvar.png"), timeout=15):
+        if wait_and_click("imagens/salvar.png", timeout=15):
             log_info("Clicado em salvar. Aguardando confirmação.")
         else:
             log_erro("Não conseguiu clicar em salvar.")
             raise Exception("Botão 'Salvar' não encontrado.")
 
         time.sleep(2)
-        # Usa caminho absoluto para ok.png
-        if wait_and_click(os.path.join(IMAGENS_DIR, "ok.png"), timeout=10):
+        if wait_and_click("imagens/ok.png", timeout=10):
             log_info("Primeiro 'ok' clicado com sucesso.")
         else:
             log_erro("Não encontrou a primeira janela 'ok'.")
@@ -54,7 +44,7 @@ def executar_violencia(item, reaproveitar_sessao=False, tem_proxima=False):
         time.sleep(2)
         log_info("Verificando existência da segunda confirmação ('ok').")
         try:
-            if wait_and_click(os.path.join(IMAGENS_DIR, "ok.png"), timeout=5):
+            if wait_and_click("imagens/ok.png", timeout=5):
                 log_info("Segundo 'ok' clicado com sucesso.")
             else:
                 log_info("Segunda janela 'ok' não apareceu. Continuando sem clicar.")
@@ -63,7 +53,7 @@ def executar_violencia(item, reaproveitar_sessao=False, tem_proxima=False):
 
         time.sleep(2)
         log_info("Aguardando janela 'Deseja incluir nova notificação?'.")
-        if wait_and_click(os.path.join(IMAGENS_DIR, "novo_ou_nao.png"), timeout=15):
+        if wait_and_click("imagens/novo_ou_nao.png", timeout=15):
             log_info("Encontrada tela 'Deseja incluir nova notificação?'.")
             time.sleep(1)
             if tem_proxima:

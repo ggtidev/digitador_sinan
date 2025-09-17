@@ -27,8 +27,11 @@ def map_to_rpa_format(raw_data):
         "ds_resid": "distrito_residencia",
         "bairro_vio": "bairro_residencia",
         "log_vio": "endereco_residencia",
+       # "xxxxxx":"codigo_residencia", # Campo faltando
         "num_resid_vio": "numero_residencia",
         "comp_vio": "complemento_residencia",
+        # "xxxxxx":"geocampo1_residencia", # Campo faltando
+        # "xxxxxx":"geocampo2_residencia", # Campo faltando
         "cep_vio": "cep_residencia",
         "tel_vio": "telefone",
         "un_not_vio": "unidade_notificadora",
