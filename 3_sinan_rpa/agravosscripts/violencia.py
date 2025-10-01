@@ -5,10 +5,13 @@ import time
 
 # Garante que o Python encontre os módulos da pasta raiz do projeto (3_sinan_rpa)
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from utils import wait_and_click, get_usuario_ativo, formatar_unidade_saude, calcular_idade_formatada
 from api_client import atualizar_status
 from logger import log_info, log_debug, log_erro
+from unidades.buscar_unidades import buscar_estabelecimento
+
 
 # Caminho absoluto da pasta de imagens
 IMAGENS_DIR = os.path.abspath(
@@ -60,12 +63,13 @@ def executar_violencia(item, reaproveitar_sessao=False, tem_proxima=False):
                 log_info("Segunda janela 'ok' não apareceu. Continuando sem clicar.")
         except Exception:
             log_info("Erro leve ao verificar segundo 'ok'. Prosseguindo mesmo assim.")
-
-        time.sleep(2)
+       
+       # FINALMENTE, APÓS SALVAR, VERIFICA SE TEM QUE ABRIR NOVA NOTIFICAÇÃO
+        time.sleep(4)
         log_info("Aguardando janela 'Deseja incluir nova notificação?'.")
         if wait_and_click(os.path.join(IMAGENS_DIR, "novo_ou_nao.png"), timeout=15):
             log_info("Encontrada tela 'Deseja incluir nova notificação?'.")
-            time.sleep(1)
+            time.sleep(3)
             if tem_proxima:
                 log_info("Clicando em 'Sim' para novo formulário.")
                 pyautogui.click(x=1002, y=594)  # Sim
@@ -94,24 +98,24 @@ def executar_violencia(item, reaproveitar_sessao=False, tem_proxima=False):
 
 def abrir_sinan():
     pyautogui.press("win")
-    time.sleep(2)
+    time.sleep(3)
     pyautogui.write("sinan")
-    time.sleep(2)
+    time.sleep(3)
     pyautogui.press("enter")
-    time.sleep(6)
+    time.sleep(8)
 
 def login(usuario, senha):
     pyautogui.write(usuario)
     pyautogui.press("tab")
     pyautogui.write(senha)
     pyautogui.press("enter")
-    time.sleep(4)
+    time.sleep(6)
 
 def selecionar_agravo(nome_agravo):
     pyautogui.click(x=72, y=59)
     pyautogui.write(nome_agravo)
     pyautogui.press("enter")
-    time.sleep(1)
+    time.sleep(2)
     pyautogui.press("enter")
     time.sleep(6)
 
@@ -119,18 +123,51 @@ def preencher_bloco_notificacao(campos, num_notificacao):
     log_debug(f"Campos notificação: {campos}")
     pyautogui.write(num_notificacao)
     pyautogui.press("tab")  
-    pyautogui.write(campos['data_notificacao'])
+    pyautogui.write(campos['data_notificacao']) # Pergunta 03
     pyautogui.press("tab", presses=3)
-    pyautogui.write(campos['unidade_notificadora'])
+    pyautogui.write(campos['unidade_notificadora']) # Pergunta 06
     pyautogui.press("tab")
+
+  
+    # --- INÍCIO DA NOVA LÓGICA ---
     if campos['unidade_notificadora'] == "7":
-        pyautogui.write(formatar_unidade_saude(campos['nome_unidade_notificadora']))
+        # Formata e armazena o nome da unidade em uma variável
+        #unidade_formatada = formatar_unidade_saude(campos['nome_unidade_notificadora']) # NAs analises de dados, nesse campo boa parte dos 50 dados vem assim ('SECRETARIA DE SAUDE' ) ou sem informação
+        unidade_formatada = (campos['nome_unidade_notificadora'])
+      
+        # Concatena " DO RECIFE" ao nome da unidade
+        nome_completo = f"{unidade_formatada} DO RECIFE"
+        
+        # Adiciona o log para registrar o que será digitado
+        log_debug(f"Preenchendo Unidade Notificadora (código 7): {nome_completo}")
+        pyautogui.write(nome_completo)
         pyautogui.press("tab")
     else:
-        pyautogui.write(formatar_unidade_saude(campos['nome_unidade_saude']))
+         # Pega o valor do JSON, que pode ser um código (ex: "721") ou um nome
+        valor_unidade_saude = campos.get('nome_unidade_saude', '')
+        
+        # Tenta converter o valor para um número inteiro (o código da unidade)
+        try:
+            codigo_unidade = int(valor_unidade_saude)
+            # Se conseguiu, busca o nome correspondente no dicionário
+            nome_da_unidade = buscar_estabelecimento(codigo_unidade)
+            log_debug(f"Código da unidade '{codigo_unidade}' convertido para nome: '{nome_da_unidade}'")
+        except (ValueError, TypeError):
+            # Se não conseguiu converter, assume que o valor já é o nome
+            nome_da_unidade = valor_unidade_saude
+            log_debug(f"Valor da unidade '{nome_da_unidade}' já está em formato de nome.")
+
+        # Formata o nome final para a busca
+        unidade_formatada = formatar_unidade_saude(nome_da_unidade)
+        
+        log_debug(f"Preenchendo Unidade de Saúde: {unidade_formatada}")
+        pyautogui.write(unidade_formatada)
         pyautogui.press("tab")
+    # --- FIM DA NOVA LÓGICA ---
+
+
     time.sleep(2)
-    pyautogui.write(campos['data_ocorrencia'])
+    pyautogui.write(campos['data_ocorrencia']) # Pergunta 09
     pyautogui.press("tab")
     pyautogui.write(campos['nome_paciente'])
     pyautogui.press("tab")
@@ -250,9 +287,33 @@ def preencher_bloco_investigacao(campos, idade):
     if idade > 11 and campos.get('orientacao_sexual'):
         pyautogui.write(campos['orientacao_sexual'])
         pyautogui.press("tab")
+
+    # if idade > 11 and campos.get('identidade_genero'): #pergunta 37 ( Só aceita  esse numero 1- Travesti / 2- Mulher Transexual / 3- Homem Transexual / 8- Não se aplica / 9- Ignorado )
+    #    pyautogui.write(campos['identidade_genero'])
+    #    pyautogui.press("tab")
+
+     # --- INÍCIO DA NOVA LÓGICA DE MAPEAMENTO ---
     if idade > 11 and campos.get('identidade_genero'):
-        pyautogui.write(campos['identidade_genero'])
+        # Dicionário de mapeamento "De-Para"
+        mapeamento_genero = {
+            '1': '1',  # Travesti -> Travesti
+            '2': '2',  # Mulher Transexual -> Mulher Transexual
+            '3': '3',  # Homem Transexual -> Homem Transexual
+            '4': '8',  # Não se aplica -> Não se aplica
+            '5': '9'   # Ignorado -> Ignorado
+        }
+        valor_redcap = campos.get('identidade_genero')
+        # Pega o valor do SINAN no dicionário. Se não encontrar, usa '9' (Ignorado) como padrão.
+        valor_sinan = mapeamento_genero.get(valor_redcap, '9')
+        
+        log_debug(f"Mapeando Identidade de Gênero: RedCap='{valor_redcap}' -> SINAN='{valor_sinan}'")
+        pyautogui.write(valor_sinan)
         pyautogui.press("tab")
+    else:
+        # Se a idade for <= 11 ou o campo não existir, pula
+        pyautogui.press("tab")
+    # --- FIM DA NOVA LÓGICA DE MAPEAMENTO ---
+
     pyautogui.write(campos['deficiencia'])
     if campos.get('deficiencia') == "1":
         pyautogui.press("tab")

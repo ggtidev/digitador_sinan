@@ -35,7 +35,7 @@ def formatar_unidade_saude(valor):
     if not valor:
         return ""
     partes = valor.strip().split()
-    ultimas_duas = partes[-2:] if len(partes) >= 2 else partes
+    ultimas_duas = partes[-3:] if len(partes) >= 3 else partes
     return f"%{' '.join(ultimas_duas)}%"
 
 def calcular_idade_formatada(data_nascimento_str: str) -> int:

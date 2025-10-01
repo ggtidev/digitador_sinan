@@ -3,6 +3,7 @@ import requests
 import psycopg2
 from dotenv import load_dotenv
 # PERGUNTAR PARA ANDERSON COMO ELE RODARIA EM QUANTO EM QUANTO TEMPO O SCRIPT DO REDCAP.PY (ESSE ARQUIVO). JUNTAMENTE COM O SCRIPT 
+# Rodar diariamente ( todos os dias) as 19:00 da manhã, para garantir que os dados estejam sempre atualizados.
 # DO carga_violencia.py DA API (OUTRO PROJETO) QUE É RESPONSAVEL POR CARREGAR OS DADOS DO REDCAP PARA O BANCO DA API.
 load_dotenv()
 
