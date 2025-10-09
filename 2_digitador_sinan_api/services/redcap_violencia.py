@@ -113,6 +113,7 @@ def map_to_rpa_format(raw_data):
         "log_ocor_vio": "endereco_ocorrencia",
         "num_ocor_vio": "numero_ocorrencia",
         "comp_ocor_vio": "complemento_ocorrencia",
+        #"zona_bio": "zona",   #ZONA (Incluir no codigo)
         "hora_ocor_vio": "horario_ocorrencia",
         "local_oc_vio": "local_ocorrencia",
         "out_loc_vio": "outro_local",

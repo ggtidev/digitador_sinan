@@ -5,7 +5,7 @@ from logger import log_info, log_erro
 
 AGRAVOS_DISPONIVEIS = {
     "VIOLENCIA_INTERPESSOAL_AUTOPROVOCADA": executar_violencia
-    # Adicione outros agravos e suas funções correspondentes aqui
+    # Adicione outros agravos e suas funções correspondentes aqui14:54
 }
 
 def processar_fila(filas):

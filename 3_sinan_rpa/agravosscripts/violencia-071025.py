@@ -12,6 +12,7 @@ from api_client import atualizar_status
 from logger import log_info, log_debug, log_erro
 from unidades.buscar_unidades import buscar_estabelecimento
 
+
 # Caminho absoluto da pasta de imagens
 IMAGENS_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "imagens")
@@ -62,37 +63,38 @@ def executar_violencia(item, reaproveitar_sessao=False, tem_proxima=False):
                 log_info("Segunda janela 'ok' não apareceu. Continuando sem clicar.")
         except Exception:
             log_info("Erro leve ao verificar segundo 'ok'. Prosseguindo mesmo assim.")
-        
-# FINALMENTE, APÓS SALVAR, VERIFICA SE TEM QUE ABRIR NOVA NOTIFICAÇÃO
+       
+       # FINALMENTE, APÓS SALVAR, VERIFICA SE TEM QUE ABRIR NOVA NOTIFICAÇÃO
         time.sleep(4)
         log_info("Aguardando janela 'Deseja incluir nova notificação deste agravo?'.")
-        
-        # Etapa 1: Visualiza a imagem da janela, sem clicar
-        if pyautogui.locateOnScreen(os.path.join(IMAGENS_DIR, "novo_ou_nao.png"), confidence=0.8):
+       # if wait_and_click(os.path.join(IMAGENS_DIR, "novo_ou_nao.png"), timeout=15):
+        if wait_and_click(os.path.join(IMAGENS_DIR, "novo_ou_nao.png"), timeout=7):
             log_info("Encontrada tela 'Deseja incluir nova notificação deste agravo?'.")
-            
-            # Etapa 2: Decide se clica em SIM ou NÃO
+            time.sleep(3)
             if tem_proxima:
                 log_info("Clicando em 'Sim' para novo formulário.")
-                if not wait_and_click(os.path.join(IMAGENS_DIR, "sim.png"), timeout=5):
-                    raise Exception("Botão 'Sim' não encontrado na janela de confirmação.")
+                #if not wait_and_click("imagens/sim.png"): # CORREÇÃO AQUI
+                if wait_and_click(os.path.join(IMAGENS_DIR, "sim.png"), timeout=5):
+                    raise Exception("Botão 'Sim' não encontrado.")
+                #pyautogui.click(x=1002, y=594)  # Sim
+                #pyautogui.click(x=999, y=591)  # Sim
             else:
                 log_info("Clicando em 'Não' para fechar formulário.")
-                if not wait_and_click(os.path.join(IMAGENS_DIR, "nao.png"), timeout=5):
-                    raise Exception("Botão 'Não' não encontrado na janela de confirmação.")
+                #if not wait_and_click("imagens/nao.png"): # CORREÇÃO AQUI
+                if wait_and_click(os.path.join(IMAGENS_DIR, "nao.png"), timeout=5):
+                    raise Exception("Botão 'Não' não encontrado.")
+                #pyautogui.click(x=1082, y=593)  # Não
+                #pyautogui.click(x=1080, y=588)  # Não
         else:
-            # Se a janela de confirmação não aparecer, registra o erro
             screenshot_nome = f"erro_nova_notificacao_{item['num_notificacao']}.png"
             pyautogui.screenshot(screenshot_nome)
             log_erro("Não encontrou a tela 'Deseja incluir nova notificação?'.")
             log_erro(f"Screenshot salvo como {screenshot_nome}")
             raise Exception("Não encontrou tela 'Deseja incluir nova notificação?'")
-        # --- FIM DA LÓGICA CORRIGIDA ---
 
         global primeira_execucao
         primeira_execucao = False
 
-#Atualizasr os STATUS NA API.
         num_notificacao = item.get("num_notificacao")
         if num_notificacao:
             atualizar_status(num_notificacao)
@@ -112,8 +114,6 @@ def abrir_sinan():
     time.sleep(8)
 
 def login(usuario, senha):
-    log_info(f"Realizando login com o usuário: {usuario}") # Loga apenas o usuário
-    log_info(f"Senha do usuário: {senha}") # senha
     pyautogui.write(usuario)
     pyautogui.press("tab")
     pyautogui.write(senha)
@@ -137,11 +137,13 @@ def preencher_bloco_notificacao(campos, num_notificacao):
     pyautogui.write(campos['unidade_notificadora']) # Pergunta 06
     pyautogui.press("tab")
 
-    # --- INÍCIO DA NOVA LÓGICA --- Pergunta 08
+  
+    # --- INÍCIO DA NOVA LÓGICA ---
     if campos['unidade_notificadora'] == "7":
+        # Formata e armazena o nome da unidade em uma variável
         #unidade_formatada = formatar_unidade_saude(campos['nome_unidade_notificadora']) # NAs analises de dados, nesse campo boa parte dos 50 dados vem assim ('SECRETARIA DE SAUDE' ) ou sem informação
         unidade_formatada = (campos['nome_unidade_notificadora'])
-    
+      
         # Concatena " DO RECIFE" ao nome da unidade
         nome_completo = f"{unidade_formatada} DO RECIFE"
         
@@ -150,7 +152,7 @@ def preencher_bloco_notificacao(campos, num_notificacao):
         pyautogui.write(nome_completo)
         pyautogui.press("tab")
     else:
-        # Pega o valor do JSON, que pode ser um código (ex: "721") ou um nome
+         # Pega o valor do JSON, que pode ser um código (ex: "721") ou um nome
         valor_unidade_saude = campos.get('nome_unidade_saude', '')
         
         # Tenta converter o valor para um número inteiro (o código da unidade)
@@ -193,14 +195,20 @@ def preencher_bloco_notificacao(campos, num_notificacao):
     if campos['sexo'].upper() == "F" and idade >= 11:
         pyautogui.press("tab")
         pyautogui.write(campos['gestante']) # Pergunta 14
+        #pyautogui.press("tab") #CASO DÊ CAQUINHA APAGAR ESSA LINHA 
     pyautogui.press("tab")
     
     if campos.get('raca'):
         pyautogui.write(campos['raca']) # Pergunta 15
     pyautogui.press("tab")
     
-    # --- INÍCIO DA NOVA LÓGICA DE MAPEAMENTO (ESCOLARIDADE) ---
-    # Vamos ter que Comparar a idade dele com a escolaridade, ver uma tabela que tenha essas informações. Exemplo: Idade = 9 então escolaridade tem que ser menor/igual a 03
+   # if idade >= 7 and campos.get('escolaridade'): # pergunta 16
+    #    pyautogui.write(campos['escolaridade'])
+     #   pyautogui.press("tab")
+
+   # --- INÍCIO DA NOVA LÓGICA DE MAPEAMENTO (ESCOLARIDADE) ---
+   # Vamos ter que Comparar a idade dele com a escolaridade, ver uma tabela que tenha essas informações. Exemplo: Idade = 9 então escolaridade tem que ser menor/igual a 03
+
     if idade >= 7 and campos.get('escolaridade'):
         mapeamento_escolaridade = {
             '1': '0',   # Analfabeto
@@ -226,10 +234,11 @@ def preencher_bloco_notificacao(campos, num_notificacao):
 
     if campos.get('cartao_sus'):
         pyautogui.write(campos['cartao_sus']) #pergunta 17
-        log_debug(f"Código do cartão SUS '{campos['cartao_sus']}'")
+        log_debug(f"Código do cartão SUS '{cartao_sus}'")
     pyautogui.press("tab")
-    
-    # --- INÍCIO DA CORREÇÃO ---
+   
+    #time.sleep(3)
+     # --- INÍCIO DA CORREÇÃO ---
     if campos.get('nome_mae'):
         log_debug(f"Preenchendo Nome da Mãe: {campos['nome_mae']}")
         pyautogui.write(campos['nome_mae'])
@@ -240,7 +249,7 @@ def preencher_bloco_notificacao(campos, num_notificacao):
 
     pyautogui.write(campos['uf_residencia_vio']) # Pergunta 19
     pyautogui.press("tab")
-    
+   
     pyautogui.write(campos['municipio_residencia'])
     pyautogui.press("tab")
     if campos.get('distrito_residencia'):
@@ -250,16 +259,26 @@ def preencher_bloco_notificacao(campos, num_notificacao):
         pyautogui.write(campos['bairro_residencia']) # Pergunta 22
         #pyautogui.press("esc")
     pyautogui.press("tab")
+
     
-    if campos.get('endereco_residencia'): 
-        pyautogui.write(campos['endereco_residencia']) # Pergunta 23.0
-    
+    #if campos.get('endereco_residencia'): 
+    #    pyautogui.write(campos['endereco_residencia']) # Pergunta 23.0
+   # pyautogui.press("tab")
+   # pyautogui.press("esc")
+    #pyautogui.press("tab")
+
     # Ao inves de ser tab tem que ser um click(x=685, y=507) para ir para o campo Codigo
     log_info("Clicando para focar no campo 'Código' (x=685, y=507).")
     pyautogui.click(x=685, y=507)
     time.sleep(0.5)
     log_debug("Pulando campo Código (vazio).")
     pyautogui.press("tab")
+
+
+    # Preenche o campo "Código" que estava faltando
+    #if campos.get('codigo_residencia'):
+     #   pyautogui.write(campos['codigo_residencia'])
+    #pyautogui.press("tab")
     
     if campos.get('numero_residencia'):
         pyautogui.write(campos['numero_residencia']) # Pergunta 24
@@ -274,6 +293,15 @@ def preencher_bloco_notificacao(campos, num_notificacao):
     pyautogui.press("tab")
     log_debug("Pulando campo Geocampo2 (vazio).")
     pyautogui.press("tab")
+    
+    # Preenche os campos "Geocampo1" e "Geocampo2" que estavam faltando
+    #if campos.get('geocampo1_residencia'):
+    #    pyautogui.write(campos['geocampo1_residencia'])
+    #pyautogui.press("tab")
+
+    #if campos.get('geocampo2_residencia'):
+    #    pyautogui.write(campos['geocampo2_residencia'])
+    #pyautogui.press("tab")
     
     if campos.get('ponto_referencia'):
         pyautogui.write(campos['ponto_referencia'])
@@ -291,7 +319,7 @@ def preencher_bloco_notificacao(campos, num_notificacao):
     else:
         pyautogui.press("tab", presses=2)
     if campos.get('zona'):
-        log_info(f"Preenchimento da ZONA: {campos['zona']}")
+        log_info(f"Preenchimento da ZONA: {item['zona']}")
         pyautogui.write(campos['zona']) # Pergunta 31
     pyautogui.press("tab")
     log_debug(f"Idade calculada/fornecida: {idade}")
@@ -305,10 +333,14 @@ def preencher_bloco_investigacao(campos, idade):
     if campos.get('ocupacao'): # Pergunta 34
         pyautogui.write(f"%{campos['ocupacao']}%")
         pyautogui.press("tab")
-        pyautogui.press("enter")     
+        pyautogui.press("enter")    
     pyautogui.press("tab")
-    
-    # --- INÍCIO DA NOVA LÓGICA DE MAPEAMENTO (ESTADO CIVIL) ---
+   
+    #if idade > 11 and campos.get('estado_civil'): # pergunta 35
+     #   pyautogui.write(campos['estado_civil'])
+    #    pyautogui.press("tab")
+
+     # --- INÍCIO DA NOVA LÓGICA DE MAPEAMENTO (ESTADO CIVIL) ---
     if idade > 11 and campos.get('estado_civil'):
         mapeamento_estado_civil = {
             '1': '1',  # Solteiro
@@ -325,8 +357,12 @@ def preencher_bloco_investigacao(campos, idade):
         pyautogui.write(valor_sinan)
     pyautogui.press("tab")
     # --- FIM DA NOVA LÓGICA DE MAPEAMENTO ---
-    
-    # --- INÍCIO DA NOVA LÓGICA DE MAPEAMENTO (ORIENTAÇÃO SEXUAL) ---
+   
+    #if idade > 11 and campos.get('orientacao_sexual'):
+     #   pyautogui.write(campos['orientacao_sexual'])
+      #  pyautogui.press("tab")
+
+     # --- INÍCIO DA NOVA LÓGICA DE MAPEAMENTO (ORIENTAÇÃO SEXUAL) ---
     if idade > 11 and campos.get('orientacao_sexual'): #pergunta 36 
         mapeamento_orientacao = {
             '1': '1',  # Heterossexual
@@ -343,7 +379,11 @@ def preencher_bloco_investigacao(campos, idade):
     pyautogui.press("tab")
     # --- FIM DA NOVA LÓGICA DE MAPEAMENTO ---
 
-    # --- INÍCIO DA NOVA LÓGICA DE MAPEAMENTO ---
+    # if idade > 11 and campos.get('identidade_genero'): #pergunta 37 ( Só aceita  esse numero 1- Travesti / 2- Mulher Transexual / 3- Homem Transexual / 8- Não se aplica / 9- Ignorado )
+    #    pyautogui.write(campos['identidade_genero'])
+    #    pyautogui.press("tab")
+
+     # --- INÍCIO DA NOVA LÓGICA DE MAPEAMENTO ---
     if idade > 11 and campos.get('identidade_genero'):
         # Dicionário de mapeamento "De-Para"
         mapeamento_genero = {
@@ -387,6 +427,7 @@ def preencher_bloco_investigacao(campos, idade):
     pyautogui.write(campos['uf_ocorrencia']) # pergunta 40
     pyautogui.press("tab")
     time.sleep(5) # AUMENTEI PARA 5 SEGUNDOS PARA TENTAR RESOLVER O PROBLEMA DE NÃO PREENCHER O MUNICIPIO
+   # pyautogui.write(campos['municipio_ocorrencia'])# pergunta 41 (reafazer colocando %nome%)
     pyautogui.write(f"%{campos['municipio_ocorrencia']}%")
     pyautogui.press("tab", presses=2)
     if campos.get('distrito'):
@@ -414,12 +455,22 @@ def preencher_bloco_investigacao(campos, idade):
         pyautogui.write(campos['ponto_referencia'])
     pyautogui.press("tab")
     if campos.get('zona'):
-        log_info(f"Preenchimento da ZONA_02: {campos['zona']}")
+        log_info(f"Preenchimento da ZONA_02: {item['zona']}")
         pyautogui.write(campos['zona'])
     pyautogui.press("tab")
     if campos.get('horario_ocorrencia'):
         pyautogui.write(campos['horario_ocorrencia'])
     pyautogui.press("tab")
+    
+    # Se o campo 'local_ocorrencia' for "9" (outro), escreve o valor do campo 'outro_local'
+    # Pergunta 52   
+   # if campos.get('local_ocorrencia') == "9":
+   #    pyautogui.write(campos['local_ocorrencia'])
+    #    pyautogui.press("tab")
+    #    pyautogui.write(campos['outro_local'])
+   # else:
+   #     pyautogui.write(campos['local_ocorrencia'])
+   # pyautogui.press("tab")
     
     # --- INÍCIO DA NOVA LÓGICA DE MAPEAMENTO (LOCAL DA OCORRÊNCIA) ---
     mapeamento_local = {
@@ -499,7 +550,7 @@ def preencher_bloco_investigacao(campos, idade):
     pyautogui.write(campos['ameaca']) # pergunta 57.8
     pyautogui.press("tab")
     # pergunta 57.9 - (x=671, y=505) ou (x=671, y=359)
-    # --- INÍCIO DA LÓGICA CORRIGIDA ---
+     # --- INÍCIO DA LÓGICA CORRIGIDA ---
     pyautogui.write(campos['outro_meio_agressao'])
     time.sleep(2.5)
     if primeira_execucao:
@@ -511,7 +562,7 @@ def preencher_bloco_investigacao(campos, idade):
         pyautogui.press("tab")
         pyautogui.write(campos['esp_outro_meio_agressao'])
     pyautogui.press("tab")
-    # --- FIM DA LÓGICA CORRIGIDA ---   
+    # --- FIM DA LÓGICA CORRIGIDA ---    
     time.sleep(2.0)
     pyautogui.write(campos['numero_envolvidos']) # pergunta 60
     pyautogui.press("tab")

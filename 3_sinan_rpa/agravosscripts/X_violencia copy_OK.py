@@ -26,6 +26,8 @@ def executar_violencia(item, reaproveitar_sessao=False, tem_proxima=False):
 
         log_info("Preenchimento completo. Tentando salvar formulário.")
         time.sleep(2)
+
+        
         if wait_and_click("imagens/salvar.png", timeout=15):
             log_info("Clicado em salvar. Aguardando confirmação.")
         else:
