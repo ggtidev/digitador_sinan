@@ -243,14 +243,47 @@ def preencher_bloco_notificacao(campos, num_notificacao):
     
     pyautogui.write(campos['municipio_residencia'])
     pyautogui.press("tab")
-    if campos.get('distrito_residencia'):
-        pyautogui.write(f"%{campos['distrito_residencia']}%")
-    pyautogui.press("tab")
-    if campos.get('bairro_residencia'):
-        pyautogui.write(campos['bairro_residencia']) # Pergunta 22
-        #pyautogui.press("esc")
-    pyautogui.press("tab")
+
+    #10/10/2025
+    # Se  municipio_residencia for igual a RECIFE, preencher o campo distrito_residencia
+    # ele vai puchar da tabela
+    # assim (pyautogui.write(f"%{campos['distrito_residencia']}%"))
+    #if campos.get('distrito_residencia'):
+    #    pyautogui.write(f"%{campos['distrito_residencia']}%")
+    #pyautogui.press("tab")
+
+    # --- INÍCIO DA ATUALIZAÇÃO - 10/10/2025 ---
+    # Se o município for RECIFE, preenche o distrito. Caso contrário, apenas pula o campo.
+    if campos.get('municipio_residencia', '').upper() == 'RECIFE':
+        if campos.get('distrito_residencia'):
+            log_debug(f"Município é RECIFE, preenchendo Distrito: %{campos['distrito_residencia']}%")
+            pyautogui.write(f"%{campos['distrito_residencia']}%")
+    else:
+        log_debug(f"Município não é RECIFE ({campos.get('municipio_residencia')}), pulando campo Distrito.")
     
+    pyautogui.press("tab") # Garante a navegação para o próximo campo (Bairro)
+    # --- FIM DA ATUALIZAÇÃO ---
+
+    #10/10/2025
+    # Se  municipio_residencia for igual a RECIFE, preencher o campo bairro_residencia
+    # ele vai puchar da tabela
+    # assim (pyautogui.write(f"%{campos['distrito_rbairro_residenciaesidencia']}%"))
+    #if campos.get('bairro_residencia'):
+    #    pyautogui.write(campos['bairro_residencia']) # Pergunta 22
+        #[não usar]pyautogui.press("esc")
+    #pyautogui.press("tab")
+
+    # Se o município for RECIFE, preenche o bairro. Caso contrário, apenas pula o campo.
+    if campos.get('municipio_residencia', '').upper() == 'RECIFE':
+        if campos.get('bairro_residencia'):
+            log_debug(f"Município é RECIFE, preenchendo Bairro: {campos['bairro_residencia']}")
+            pyautogui.write(campos['bairro_residencia']) # Pergunta 22
+    else:
+        log_debug(f"Município não é RECIFE ({campos.get('municipio_residencia')}), pulando campo Bairro.")
+
+    pyautogui.press("tab") # Garante a navegação para o próximo campo (Endereço)
+     # --- FIM DA ATUALIZAÇÃO ---
+
     if campos.get('endereco_residencia'): 
         pyautogui.write(campos['endereco_residencia']) # Pergunta 23.0
     
@@ -451,12 +484,16 @@ def preencher_bloco_investigacao(campos, idade):
         pyautogui.press("tab")
     # --- FIM DA NOVA LÓGICA DE MAPEAMENTO ---
 
+    #INCCLUIR LISTA COMPARATIVA DE NUMEROS QUE VEM DO REDCAP
     if campos.get('ocorreu_outras_vezes'):
         pyautogui.write(campos['ocorreu_outras_vezes'])
     pyautogui.press("tab")
+    
+    #INCCLUIR LISTA COMPARATIVA DE NUMEROS QUE VEM DO REDCAP
     if campos.get('lesao_autoprovocada'):
         pyautogui.write(campos['lesao_autoprovocada'])
     pyautogui.press("tab")
+    
     pyautogui.write(campos['motivo_violencia'])
     pyautogui.press("tab")
     pyautogui.write(campos['fisica'])

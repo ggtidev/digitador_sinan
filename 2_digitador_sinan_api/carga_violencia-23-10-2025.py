@@ -12,9 +12,9 @@ Descrição:
       - Inserção das notificações e seus detalhes no banco de destino.
       - Geração de um arquivo de log com data/hora, erros e resumo final.
 
-Autor: André ROdovalho / Minsait - Saúde Digital
-Última atualização: 24/10/2025
-Versão: 2.1
+Autor: Equipe de Integração / Saúde Digital
+Última atualização: 15/10/2025
+Versão: 1.5
 """
 
 # --- 1. IMPORTAÇÕES ---
@@ -189,79 +189,55 @@ with open(log_path, "w", encoding="utf-8") as log_file:
         if mun_val and mun_val.strip().upper() != "RECIFE":
             campos_faltando.append("mun_notif_vio (deve ser 'RECIFE')")
 
-        # REGRA 02: Unidade notificadora deve ser "01" ou "7" 
-        # --------------  
-        # REGRA 02: Unidade notificadora e nome da unidade (REGRAS 2.1 e 2.2)
-
-        # ==========================================================
-        # REGRA 02 e 03 — Unidade notificadora e nome da unidade
-        # ==========================================================
-
-        # --- REGRA 2.1: Ajuste do código de unidade notificadora ---
+        # REGRA 02: Unidade notificadora deve ser "01" ou "7"
+       
+        # Obtém o valor do campo 'un_not_vio'
         un_val = obter_valor(campos_presentes, 'un_not_vio', 'unidade_notificadora')
+
+        # Verifica se o valor foi encontrado
         if un_val is not None:
+            # Converte para string e remove espaços extras
             un_val = str(un_val).strip()
-            print(f"[DEBUG] Record {record} → un_not_vio recebido do REDCAP: '{un_val}'")
 
-            # Se for diferente de 1, força o valor a 7
-            if un_val == "1":
-                un_val_final = "1"
-            else:
-                un_val_final = "7"
-                print(f"[INFO] Record {record} → un_not_vio ajustado automaticamente de '{un_val}' para '7'")
+            # Loga o valor recebido para depuração
+            print(f"[DEBUG] Record {record} → un_not_vio recebido: '{un_val}'")
 
+            # Verifica se o valor é válido ('01', '1' ou '7')
+            if un_val not in ['01', '1', '7']:
+                campos_faltando.append(
+                    f"un_not_vio (O valor da (unidade_notificadora) deve ser '01' ou '7', valor recebido do REDCAP: '{un_val}')"
+                )
         else:
-            un_val_final = None
+            # Caso o campo esteja ausente
             print(f"[DEBUG] Record {record} → un_not_vio ausente ou nulo")
             campos_faltando.append("un_not_vio (campo obrigatório)")
 
-        # --- REGRA 2.2: Determina a origem do nome da unidade de saúde ---
-        us_val = None
-        origem_nome = ""
+        # REGRA 03: Nome da unidade de saúde (us_vio) obrigatório — aceita número também
+        # Verifica tanto o campo 'us_vio' quanto 'nome_unidade_saude', pois podem variar de origem
+        us_val = obter_valor(campos_presentes, 'us_vio', 'nome_unidade_saude')
 
-        if un_val_final in ["2", "3", "4", "6", "7"]:
-            # Quando for tipo 2,3,4,6,7 — buscar em nm_un_vio
-            us_val = obter_valor(campos_presentes, 'nm_un_vio')
-            origem_nome = "nm_un_vio"
-        elif un_val_final in ["1", "5"]:
-            # Quando for tipo 1 ou 5 — buscar em us_vio ou nome_unidade_saude
-            us_val = obter_valor(campos_presentes, 'us_vio', 'nome_unidade_saude')
-            origem_nome = "us_vio / nome_unidade_saude"
+        # --- CASO 1: Campo completamente ausente no dicionário de dados (não veio do REDCap) ---
+        if 'us_vio' not in campos_presentes and 'nome_unidade_saude' not in campos_presentes:
+            campos_faltando.append(" [us_vio] = nome_unidade_saude -> (esse campo está AUSENTE no banco, não veio essa informação do REDCAP)")
         else:
-            origem_nome = "desconhecida"
-
-        print(f"[DEBUG] Record {record} → Origem da unidade: {origem_nome} | Valor: '{us_val}'")
-
-        # --- REGRA 03: Validação do nome da unidade ---
-        # Caso o campo não exista em nenhum dos três lugares
-        if (
-            'us_vio' not in campos_presentes and
-            'nome_unidade_saude' not in campos_presentes and
-            'nm_un_vio' not in campos_presentes
-        ):
-            campos_faltando.append(
-                "[us_vio] = nome_unidade_saude/nm_un_vio -> (esse campo está AUSENTE no banco, não veio essa informação do REDCAP)"
-            )
-
-        else:
+            # --- CASO 2: Campo existe, prosseguir com validação normal ---
+            
+            # Normaliza o valor (transforma em texto e remove espaços)
             us_val_str = str(us_val).strip() if us_val is not None else ""
 
-            # Mostra no log o valor recebido
-            print(f"[DEBUG] Record {record} → Valor final de unidade de saúde: '{us_val_str}'")
+            # Depuração para log — mostra o valor real recebido
+            print(f"[DEBUG] Record {record} → us_vio recebido: '{us_val_str}'")
 
-            # Verifica duplicidade antes de adicionar ao log
-            campo_ja_adicionado = any("us_vio" in c or "nm_un_vio" in c for c in campos_faltando)
+            # Evita duplicidade — verifica se o campo já foi adicionado à lista de faltantes
+            campo_ja_adicionado = any("us_vio" in c for c in campos_faltando)
 
             if not campo_ja_adicionado:
+                # Caso esteja vazio ou nulo
                 if not us_val_str:
-                    campos_faltando.append(
-                        f"{origem_nome} (campo obrigatório — valor recebido: vazio)"
-                    )
+                    campos_faltando.append("us_vio (campo obrigatório — valor recebido: vazio)")
+                # Caso tenha valor, mas formato incorreto (permite letras e números)
                 elif not us_val_str.replace(" ", "").isalnum():
-                    campos_faltando.append(
-                        f"{origem_nome} (valor inválido — valor recebido: '{us_val_str}')"
-                    )
-
+                    campos_faltando.append(f"us_vio (valor inválido — valor recebido: '{us_val_str}')")
 
 
 

@@ -9,5 +9,11 @@
     "tela_principal": "imagens/tela_principal.png",
     "tela_notificacao_individual": "imagens/tela_notificacao_individual.png",
     "tela_novo_ou_nao": "imagens/novo_ou_nao.png"
+  },
+  "erros": {
+    "atencao_escolaridade": "imagens/erro-01-atencao.png",
+    "atencao_municipio": "imagens/erro-02-atencao.png",
+    "info_escolaridade": "imagens/erro-03-informacoes.png",
+    "popup_cnes_vazio": "imagens/erro-04-popup.png"
   }
 }
