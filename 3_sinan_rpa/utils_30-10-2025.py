@@ -147,20 +147,4 @@ def verificar_e_tratar_erro(rpa_service, log_service):
 
 
 # criar um arquivo de log com as posicoes do mouse.    
-def log_posicoes_mouse(log_filepath, intervalo=1, duracao=60):
-    """
-    Registra as posições do mouse em um arquivo de log por um determinado período.
     
-    Args:
-        log_filepath (str): Caminho do arquivo de log onde as posições serão salvas.
-        intervalo (int): Intervalo em segundos entre cada registro de posição.
-        duracao (int): Duração total em segundos para registrar as posições.
-    """
-    end_time = time.time() + duracao
-    with open(log_filepath, 'w') as log_file:
-        log_file.write("Timestamp, X, Y\n")
-        while time.time() < end_time:
-            x, y = pyautogui.position()
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            log_file.write(f"{timestamp}, {x}, {y}\n")
-            time.sleep(intervalo)

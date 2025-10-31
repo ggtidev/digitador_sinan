@@ -2,7 +2,8 @@
   "botoes": {
     "salvar": "imagens/salvar.png",
     "ok": "imagens/ok.png",
-    "menu_agravo": "imagens/menu_agravo.png" 
+    "menu_agravo": "imagens/menu_agravo.png", 
+    "notificacao": "imagens/notificacao.png"
   },
   "telas": {
     "tela_login": "imagens/tela_login.png",
@@ -14,6 +15,8 @@
     "atencao_escolaridade": "imagens/erro-01-atencao.png",
     "atencao_municipio": "imagens/erro-02-atencao.png",
     "info_escolaridade": "imagens/erro-03-informacoes.png",
-    "popup_cnes_vazio": "imagens/erro-04-popup.png"
+    "popup_cnes_vazio": "imagens/erro-04-popup.png",
+    "confirmacao_ficha": "imagens/salvar_ficha.png",
+    "erro_pop_vazio": "imagens/erro-05-popup.png"
   }
 }

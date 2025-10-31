@@ -13,8 +13,8 @@ Descrição:
       - Geração de um arquivo de log com data/hora, erros e resumo final.
 
 Autor: André ROdovalho / Minsait - Saúde Digital
-Última atualização: 27/10/2025
-Versão: 2.2
+Última atualização: 24/10/2025
+Versão: 2.1
 """
 
 # --- 1. IMPORTAÇÕES ---
@@ -39,7 +39,7 @@ load_dotenv()
 # --- 3. DEFINIÇÃO DOS CAMPOS OBRIGATÓRIOS ---
 # A lista a seguir contém os campos essenciais de cada notificação.
 # Eles são verificados durante a validação e não podem estar vazios.
-CAMPOS_OBRIGATÓRIOS = [
+CAMPOS_OBRIGATORIOS = [
     'dt_not_vio',      # data_notificacao
     'uf_notif_vio',    # uf_notificacao_vio
     'mun_notif_vio',   # mun_notificacao_vio
@@ -173,12 +173,10 @@ with open(log_path, "w", encoding="utf-8") as log_file:
             ('dt_not_vio', 'data_notificacao'),
             ('uf_notif_vio', 'uf_notificacao_vio'),
             ('mun_notif_vio', 'mun_notificacao_vio'),
-            # Os campos de unidade (un_not_vio, us_vio) são validados abaixo na REGRA 1 (MODIFICADA)
-            # ('un_not_vio', 'unidade_notificadora'),
-            # ('us_vio', 'nome_unidade_saude')
+            ('un_not_vio', 'unidade_notificadora'),
+            ('us_vio', 'nome_unidade_saude')
         ]
-        
-        # Validação dos campos principais (exceto os de unidade)
+
         for aliases in campos_principais:
             valor = obter_valor(campos_presentes, *aliases)
             if not valor:
@@ -196,71 +194,74 @@ with open(log_path, "w", encoding="utf-8") as log_file:
         # REGRA 02: Unidade notificadora e nome da unidade (REGRAS 2.1 e 2.2)
 
         # ==========================================================
-        # REGRA 02 e 03 — Unidade notificadora e nome da unidade (MODIFICADAS)
+        # REGRA 02 e 03 — Unidade notificadora e nome da unidade
         # ==========================================================
 
-        # --- REGRA 1 (NOVA): Validação unificada (un_not_vio, us_vio, nm_un_vio) ---
-        # O erro só ocorre se TODOS os 3 campos (ou seus aliases) estiverem vazios.
-        
+        # --- REGRA 2.1: Ajuste do código de unidade notificadora ---
         un_val = obter_valor(campos_presentes, 'un_not_vio', 'unidade_notificadora')
-        us_val_us = obter_valor(campos_presentes, 'us_vio', 'nome_unidade_saude')
-        us_val_nm = obter_valor(campos_presentes, 'nm_un_vio')
-
-        if not un_val and not us_val_us and not us_val_nm:
-             campos_faltando.append(
-                "un_not_vio, us_vio, nm_un_vio (Todos os 3 campos de unidade estão ausentes ou vazios)"
-            )
-
-        # --- REGRA 2.1: Ajuste do código de unidade notificadora (Transformação) ---
-        # A lógica de validação foi movida para cima (REGRA 1).
-        # Aqui mantemos apenas a lógica de *transformação* (ajuste para '7').
-        un_val_final = None
         if un_val is not None:
-            un_val_strip = str(un_val).strip()
-            print(f"[DEBUG] Record {record} → un_not_vio recebido do REDCAP: '{un_val_strip}'")
+            un_val = str(un_val).strip()
+            print(f"[DEBUG] Record {record} → un_not_vio recebido do REDCAP: '{un_val}'")
 
             # Se for diferente de 1, força o valor a 7
-            if un_val_strip == "1":
+            if un_val == "1":
                 un_val_final = "1"
             else:
                 un_val_final = "7"
-                print(f"[DEBUG] Record {record} → un_not_vio ajustado/interpretado como '7' (original: '{un_val_strip}')")
+                print(f"[INFO] Record {record} → un_not_vio ajustado automaticamente de '{un_val}' para '7'")
+
         else:
-             print(f"[DEBUG] Record {record} → un_not_vio ausente ou nulo (Validação pela REGRA 1)")
-             # A validação de 'campo obrigatório' foi removida daqui
+            un_val_final = None
+            print(f"[DEBUG] Record {record} → un_not_vio ausente ou nulo")
+            campos_faltando.append("un_not_vio (campo obrigatório)")
 
         # --- REGRA 2.2: Determina a origem do nome da unidade de saúde ---
-        # Esta lógica é mantida para fins de debug e processamento futuro, 
-        # embora a *validação* (REGRA 03) tenha sido simplificada (REGRA 1).
         us_val = None
         origem_nome = ""
 
-        # Usamos o un_val_final (transformado)
         if un_val_final in ["2", "3", "4", "6", "7"]:
-            us_val = us_val_nm # Reutiliza o valor já buscado
+            # Quando for tipo 2,3,4,6,7 — buscar em nm_un_vio
+            us_val = obter_valor(campos_presentes, 'nm_un_vio')
             origem_nome = "nm_un_vio"
         elif un_val_final in ["1", "5"]:
-            us_val = us_val_us # Reutiliza o valor já buscado
+            # Quando for tipo 1 ou 5 — buscar em us_vio ou nome_unidade_saude
+            us_val = obter_valor(campos_presentes, 'us_vio', 'nome_unidade_saude')
             origem_nome = "us_vio / nome_unidade_saude"
         else:
-            # Se un_val_final for None (pois un_val era None), 
-            # tentamos 'adivinhar' a origem com base no que foi preenchido.
-            if us_val_us:
-                origem_nome = "us_vio / nome_unidade_saude (un_not_vio ausente)"
-                us_val = us_val_us
-            elif us_val_nm:
-                origem_nome = "nm_un_vio (un_not_vio ausente)"
-                us_val = us_val_nm
-            else:
-                origem_nome = "desconhecida (todos vazios)"
+            origem_nome = "desconhecida"
 
         print(f"[DEBUG] Record {record} → Origem da unidade: {origem_nome} | Valor: '{us_val}'")
 
-        # --- REGRA 03: Validação do nome da unidade (Substituída pela REGRA 1) ---
-        # A lógica de validação 'isalnum' foi removida (Regra 2),
-        # e a lógica de obrigatoriedade foi movida para a REGRA 1.
-        # Este bloco fica vazio ou apenas com o debug final.
-        print(f"[DEBUG] Record {record} → Valor 'us_vio' (alias): '{us_val_us}' | Valor 'nm_un_vio': '{us_val_nm}'")
+        # --- REGRA 03: Validação do nome da unidade ---
+        # Caso o campo não exista em nenhum dos três lugares
+        if (
+            'us_vio' not in campos_presentes and
+            'nome_unidade_saude' not in campos_presentes and
+            'nm_un_vio' not in campos_presentes
+        ):
+            campos_faltando.append(
+                "[us_vio] = nome_unidade_saude/nm_un_vio -> (esse campo está AUSENTE no banco, não veio essa informação do REDCAP)"
+            )
+
+        else:
+            us_val_str = str(us_val).strip() if us_val is not None else ""
+
+            # Mostra no log o valor recebido
+            print(f"[DEBUG] Record {record} → Valor final de unidade de saúde: '{us_val_str}'")
+
+            # Verifica duplicidade antes de adicionar ao log
+            campo_ja_adicionado = any("us_vio" in c or "nm_un_vio" in c for c in campos_faltando)
+
+            if not campo_ja_adicionado:
+                if not us_val_str:
+                    campos_faltando.append(
+                        f"{origem_nome} (campo obrigatório — valor recebido: vazio)"
+                    )
+                elif not us_val_str.replace(" ", "").isalnum():
+                    campos_faltando.append(
+                        f"{origem_nome} (valor inválido — valor recebido: '{us_val_str}')"
+                    )
+
 
 
 
