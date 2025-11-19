@@ -3,12 +3,16 @@ import os
 import pyautogui
 import time
 
+pyautogui.FailSafeException = True  # DeAtivar a exceção de segurança do PyAutoGUI
+
 # Garante que o Python encontre os módulos da pasta raiz do projeto (3_sinan_rpa)
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from utils import wait_and_click, get_usuario_ativo, formatar_unidade_saude, calcular_idade_formatada
-from api_client import atualizar_status
+# ATUALIZAÇÃO: 'verificar_e_tratar_erro' adicionada.
+from utils import wait_and_click, get_usuario_ativo, formatar_unidade_saude, calcular_idade_formatada, verificar_e_tratar_erro
+# ATUALIZAÇÃO: 'registrar_erro' adicionada.
+from api_client import atualizar_status, registrar_erro
 from logger import log_info, log_debug, log_erro
 from unidades.buscar_unidades import buscar_estabelecimento
 
@@ -23,17 +27,27 @@ primeira_execucao = True
 pyautogui.PAUSE = 0.3
 
 def executar_violencia(item, reaproveitar_sessao=False, tem_proxima=False):
+    num_notificacao = item.get("num_notificacao")
+    agravo_nome = "%VIOLENC%" # Agravo que está sendo digitado
     try:
         if not reaproveitar_sessao:
             abrir_sinan()
             username, password = get_usuario_ativo()
             login(username, password)
-            selecionar_agravo("%VIOLENC%") # Seleciona o agravo de violência - ELLEN PAZ DE SOUZA 
+            selecionar_agravo(agravo_nome) # Seleciona o agravo de violência
 
-        log_info(f"Iniciando preenchimento da notificação: {item['num_notificacao']}")
-        idade = preencher_bloco_notificacao(item["notificacao"], item["num_notificacao"])
+        log_info(f"Iniciando preenchimento da notificação: {num_notificacao}")
+        idade = preencher_bloco_notificacao(item["notificacao"], num_notificacao)
+        
+        # A validação de erro interna (verificar_e_tratar_erro) já levanta uma Exception se for o caso.
+        
         log_info("Notificação preenchida. Iniciando investigação.")
         preencher_bloco_investigacao(item["investigacao"], idade)
+
+        # Checagem de erro após preencher o bloco de Investigação
+        if verificar_e_tratar_erro(num_notificacao, agravo_nome):
+            log_erro(f"Erro de digitação encontrado em Bloco Investigação para {num_notificacao}. Interrompendo e prosseguindo para a próxima.")
+            return # Sai da função
 
         log_info("Preenchimento completo. Tentando salvar formulário.")
         time.sleep(2)
@@ -45,6 +59,11 @@ def executar_violencia(item, reaproveitar_sessao=False, tem_proxima=False):
             log_erro("Não conseguiu clicar em salvar.")
             raise Exception("Botão 'Salvar' não encontrado.")
 
+        # Checar erro após clicar em SALVAR (erros de validação pop-up)
+        if verificar_e_tratar_erro(num_notificacao, agravo_nome):
+            log_erro(f"Erro de validação encontrado após salvar para {num_notificacao}. Interrompendo e prosseguindo para a próxima.")
+            return # Sai da função.
+            
         time.sleep(2)
         # Usa caminho absoluto para ok.png
         if wait_and_click(os.path.join(IMAGENS_DIR, "ok.png"), timeout=10):
@@ -52,6 +71,11 @@ def executar_violencia(item, reaproveitar_sessao=False, tem_proxima=False):
         else:
             log_erro("Não encontrou a primeira janela 'ok'.")
             raise Exception("Não encontrou primeira janela 'ok'")
+
+        # Checar erro após o primeiro OK
+        if verificar_e_tratar_erro(num_notificacao, agravo_nome):
+            log_erro(f"Erro encontrado após 1º OK para {num_notificacao}. Interrompendo e prosseguindo para a próxima.")
+            return # Sai da função.
 
         time.sleep(2)
         log_info("Verificando existência da segunda confirmação ('ok').")
@@ -63,7 +87,7 @@ def executar_violencia(item, reaproveitar_sessao=False, tem_proxima=False):
         except Exception:
             log_info("Erro leve ao verificar segundo 'ok'. Prosseguindo mesmo assim.")
         
-# FINALMENTE, APÓS SALVAR, VERIFICA SE TEM QUE ABRIR NOVA NOTIFICAÇÃO
+        # FINALMENTE, APÓS SALVAR, VERIFICA SE TEM QUE ABRIR NOVA NOTIFICAÇÃO
         time.sleep(4)
         log_info("Aguardando janela 'Deseja incluir nova notificação deste agravo?'.")
         
@@ -81,26 +105,32 @@ def executar_violencia(item, reaproveitar_sessao=False, tem_proxima=False):
                 if not wait_and_click(os.path.join(IMAGENS_DIR, "nao.png"), timeout=5):
                     raise Exception("Botão 'Não' não encontrado na janela de confirmação.")
         else:
-            # Se a janela de confirmação não aparecer, registra o erro
+            # Se a janela de confirmação não aparecer, registra o erro e salva screenshot
             screenshot_nome = f"erro_nova_notificacao_{item['num_notificacao']}.png"
             pyautogui.screenshot(screenshot_nome)
             log_erro("Não encontrou a tela 'Deseja incluir nova notificação?'.")
             log_erro(f"Screenshot salvo como {screenshot_nome}")
             raise Exception("Não encontrou tela 'Deseja incluir nova notificação?'")
-        # --- FIM DA LÓGICA CORRIGIDA ---
 
         global primeira_execucao
         primeira_execucao = False
-
-#Atualizasr os STATUS NA API.
-        num_notificacao = item.get("num_notificacao")
+        
+    # **BLOCO EXCEPT Corrigido: Registra erro e re-lança a exceção**
+    except Exception as e:
+        log_erro(f"Erro FATAL durante execução do script violência para {num_notificacao}: {e}")
+        # Se houve um erro FATAL, registra o status "erro_digitacao"
+        if num_notificacao:
+            # Chame registrar_erro (que atualiza para "erro_digitacao")
+            registrar_erro(num_notificacao) 
+            log_info(f"Status da notificação {num_notificacao} atualizado para 'erro_digitacao' devido a erro fatal.")
+        raise e # Interrompe o fluxo e impede que o bloco 'else' seja executado.
+        
+    # **BLOCO ELSE: Executado SOMENTE se o 'try' for concluído sem exceções.**
+    else:
+        # Atualiza o STATUS NA API para 'concluido'
         if num_notificacao:
             atualizar_status(num_notificacao)
             log_info(f"Status atualizado na API para a notificação {num_notificacao}.")
-            
-    except Exception as e:
-        log_erro(f"Erro durante execução do script violência: {e}")
-        raise e
 
 
 def abrir_sinan():
@@ -139,13 +169,9 @@ def preencher_bloco_notificacao(campos, num_notificacao):
 
     # --- INÍCIO DA NOVA LÓGICA --- Pergunta 08
     if campos['unidade_notificadora'] == "7":
-        #unidade_formatada = formatar_unidade_saude(campos['nome_unidade_notificadora']) # NAs analises de dados, nesse campo boa parte dos 50 dados vem assim ('SECRETARIA DE SAUDE' ) ou sem informação
         unidade_formatada = (campos['nome_unidade_notificadora'])
-    
-        # Concatena " DO RECIFE" ao nome da unidade
         nome_completo = f"{unidade_formatada} DO RECIFE"
         
-        # Adiciona o log para registrar o que será digitado
         log_debug(f"Preenchendo Unidade Notificadora (código 7): {nome_completo}")
         pyautogui.write(nome_completo)
         pyautogui.press("tab")
@@ -170,25 +196,53 @@ def preencher_bloco_notificacao(campos, num_notificacao):
         log_debug(f"Preenchendo Unidade de Saúde: {unidade_formatada}")
         pyautogui.write(unidade_formatada)
         pyautogui.press("tab")
+
+    # --- INCLUSÃO DA VALIDAÇÃO DE ERRO APÓS PREENCHIMENTO DA UNIDADE (PERGUNTA 08) ---
+    # O agravo é hardcoded como "%VIOLENC%" na função 'executar_violencia'.
+    # A função verificar_e_tratar_erro é chamada e, se retornar True (erro tratado),
+    # levantamos uma exceção para interromper o preenchimento da ficha atual.
+    if verificar_e_tratar_erro(num_notificacao, "%VIOLENC%"):
+        # Se um erro foi encontrado e tratado (status atualizado e tela limpa), 
+        # forçamos a interrupção do preenchimento desta ficha.
+        raise Exception(f"Erro de digitação em Unidade de Saúde para {num_notificacao}. Interrupção forçada.")
+    # --- FIM DA VALIDAÇÃO DE ERRO ---
+
     # --- FIM DA NOVA LÓGICA ---
 
     time.sleep(2)
     pyautogui.write(campos['data_ocorrencia']) # Pergunta 09
     pyautogui.press("tab")
-    pyautogui.write(campos['nome_paciente'])
+    
+    pyautogui.write(campos['nome_paciente']) # Pergunta 10
     pyautogui.press("tab")
+    
     idade = 0
-    if campos.get('data_nascimento_completa'):
+    if campos.get('data_nascimento_completa'): # Pergunta 11
         pyautogui.write(campos['data_nascimento_completa'])
         idade = calcular_idade_formatada(campos['data_nascimento_completa'])
         pyautogui.press("tab")
+        
+        # --- INÍCIO DA VALIDAÇÃO DE ERRO (PERGUNTA 11) ---
+        if verificar_e_tratar_erro(num_notificacao, agravo_nome, tem_proxima=tem_proxima):
+             raise Exception(f"Erro de digitação detectado para {num_notificacao}. Reiniciando fluxo da notificação.")
+
+        # --- FIM DA VALIDAÇÃO DE ERRO (PERGUNTA 11) ---
+
     else:
-        pyautogui.press("tab")
+        pyautogui.press("tab") # Pula o campo Data de Nascimento
         idade = int(campos.get('idade_calculada_notificador', 0))
-        pyautogui.write(str(idade)) # Pergunta 12
-        pyautogui.press("tab")
-        pyautogui.write("4")
-        pyautogui.press("tab")
+        pyautogui.write(str(idade)) # Pergunta 12 (Idade)
+        pyautogui.press("tab") # Avança do campo P12 (Idade)
+        
+        # --- INÍCIO DA VALIDAÇÃO DE ERRO (PERGUNTA 12) ---
+        if verificar_e_tratar_erro(num_notificacao, agravo_nome, tem_proxima=tem_proxima):
+             raise Exception(f"Erro de digitação detectado para {num_notificacao}. Reiniciando cação.")
+
+        # --- FIM DA VALIDAÇÃO DE ERRO (PERGUNTA 12) ---
+        
+        pyautogui.write("4") # Pergunta 12 (Tipo Idade: Anos)
+        pyautogui.press("tab") # Avança do campo P12 (Tipo Idade)
+    
     pyautogui.write(campos['sexo']) # Pergunta 13
     if campos['sexo'].upper() == "F" and idade >= 11:
         pyautogui.press("tab")
@@ -244,14 +298,6 @@ def preencher_bloco_notificacao(campos, num_notificacao):
     pyautogui.write(campos['municipio_residencia'])
     pyautogui.press("tab")
 
-    #10/10/2025
-    # Se  municipio_residencia for igual a RECIFE, preencher o campo distrito_residencia
-    # ele vai puchar da tabela
-    # assim (pyautogui.write(f"%{campos['distrito_residencia']}%"))
-    #if campos.get('distrito_residencia'):
-    #    pyautogui.write(f"%{campos['distrito_residencia']}%")
-    #pyautogui.press("tab")
-
     # --- INÍCIO DA ATUALIZAÇÃO - 10/10/2025 ---
     # Se o município for RECIFE, preenche o distrito. Caso contrário, apenas pula o campo.
     if campos.get('municipio_residencia', '').upper() == 'RECIFE':
@@ -263,15 +309,6 @@ def preencher_bloco_notificacao(campos, num_notificacao):
     
     pyautogui.press("tab") # Garante a navegação para o próximo campo (Bairro)
     # --- FIM DA ATUALIZAÇÃO ---
-
-    #10/10/2025
-    # Se  municipio_residencia for igual a RECIFE, preencher o campo bairro_residencia
-    # ele vai puchar da tabela
-    # assim (pyautogui.write(f"%{campos['distrito_rbairro_residenciaesidencia']}%"))
-    #if campos.get('bairro_residencia'):
-    #    pyautogui.write(campos['bairro_residencia']) # Pergunta 22
-        #[não usar]pyautogui.press("esc")
-    #pyautogui.press("tab")
 
     # Se o município for RECIFE, preenche o bairro. Caso contrário, apenas pula o campo.
     if campos.get('municipio_residencia', '').upper() == 'RECIFE':
@@ -335,11 +372,18 @@ def preencher_bloco_investigacao(campos, idade):
     log_debug(f"Idade recebida para investigação: {idade}")
     
     #Verificar se a dados em ocupacao., ele faz a pesquisa via %NOME_OCUPACAO%
-    if campos.get('ocupacao'): # Pergunta 34
-        pyautogui.write(f"%{campos['ocupacao']}%")
-        pyautogui.press("tab")
-        pyautogui.press("enter")     
+    #log_debug(f"Campos (34) Ocupação: {campos['ocupacao']}")
+    if campos.get('ocupacao'):
+        valor_ocupacao = campos['ocupacao']
+        log_debug(f"Preenchendo campo (34) Ocupação com valor recebido: '{valor_ocupacao}'")
+        pyautogui.write(f"%{valor_ocupacao}%")
+        pyautogui.press("tab")   # Avaliar necessidade
+        pyautogui.press("enter") # Avaliar necessidade
+    else:
+        log_debug("Campo (34) Ocupação está vazio ou ausente no JSON recebido.")
     pyautogui.press("tab")
+
+    # COlocar a função de ERRO aqui.
     
     # --- INÍCIO DA NOVA LÓGICA DE MAPEAMENTO (ESTADO CIVIL) ---
     if idade > 11 and campos.get('estado_civil'):
@@ -377,7 +421,7 @@ def preencher_bloco_investigacao(campos, idade):
     # --- FIM DA NOVA LÓGICA DE MAPEAMENTO ---
 
     # --- INÍCIO DA NOVA LÓGICA DE MAPEAMENTO ---
-    if idade > 11 and campos.get('identidade_genero'):
+    if idade > 11 and campos.get('identidade_genero'): #pergunta 37
         # Dicionário de mapeamento "De-Para"
         mapeamento_genero = {
             '1': '1',  # Travesti -> Travesti
@@ -397,8 +441,11 @@ def preencher_bloco_investigacao(campos, idade):
         # Se a idade for <= 11 ou o campo não existir, pula
         pyautogui.press("tab")
     # --- FIM DA NOVA LÓGICA DE MAPEAMENTO ---
-
-    pyautogui.write(campos['deficiencia'])
+    
+    time.sleep(5)
+    pyautogui.write(campos['deficiencia']) #pergunta 38
+    log_debug(f"Campos (38) DEFICIENCIA: {campos['deficiencia']}")
+    # IMprimir o log de deficiencia
     if campos.get('deficiencia') == "1":
         pyautogui.press("tab")
         pyautogui.write(campos['deficiencia_fisica'])
@@ -646,4 +693,3 @@ def preencher_bloco_investigacao(campos, idade):
     pyautogui.press("tab")
     if campos.get('observacoes'):
         pyautogui.write(campos['observacoes'])
-

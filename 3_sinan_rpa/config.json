@@ -17,6 +17,9 @@
     "info_escolaridade": "imagens/erro-03-informacoes.png",
     "popup_cnes_vazio": "imagens/erro-04-popup.png",
     "confirmacao_ficha": "imagens/salvar_ficha.png",
-    "erro_pop_vazio": "imagens/erro-05-popup.png"
+    "erro_pop_vazio": "imagens/erro-05-popup.png",
+    "erro_opcao_invalida": "imagens/erro-06-opcao-invalida.png",
+    "atencao_uf": "imagens/erro-07-atencao_uf.png", 
+    "atencao_so_recebe_valores_numericos": "imagens/erro-08-atencao_so_recebe_valores_numericos.png"
   }
 }

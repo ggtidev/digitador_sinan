@@ -1,11 +1,63 @@
-pyautogui
-pyscreeze
-pillow
-opencv-python
-python-dotenv
-requests
-keyboard
+# ============================================================
+# 🧩 SINAN-RPA - Dependências Principais (versão compatível com Python 3.13)
+# ============================================================
+# Sistema: Windows 11 x64
+# Ambiente: venv do Python 3.13.9
+# ------------------------------------------------------------
+# Este arquivo foi ajustado para o cenário em que:
+# - Python 3.13 está sendo utilizado
+# - Visual Studio Build Tools 2022 está instalado (recomendado)
+# - Todas as bibliotecas críticas têm wheels binárias (sem necessidade de compilação)
+# ------------------------------------------------------------
 
+# ============================================================
+# 🔹 Automação e captura de tela
+# ============================================================
 
+pyautogui==0.9.54          # Automação do teclado/mouse
+pyscreeze==0.1.30          # Suporte a captura de tela usado pelo PyAutoGUI
+pillow==10.4.0             # Biblioteca de imagens (com wheel já compatível com Python 3.13)
 
+# ============================================================
+# 🔹 OpenCV + NumPy (visão computacional)
+# ============================================================
 
+opencv-python==4.12.0.84   # Versão atual compatível com NumPy 2.x e Python 3.13
+opencv-contrib-python==4.12.0.84  # Módulos extras do OpenCV
+numpy==2.3.1               # NumPy 2.x – compatível com OpenCV 4.12 e Python 3.13
+
+# ============================================================
+# 🔹 Manipulação de dados e exportação de relatórios
+# ============================================================
+
+pandas==2.2.3              # Necessita NumPy >= 2.0; possui wheel binária estável no PyPI
+
+# ============================================================
+# 🔹 Variáveis de ambiente e API
+# ============================================================
+
+python-dotenv==1.0.1       # Leitura do arquivo .env (usuários, senhas etc.)
+requests==2.32.3           # Comunicação HTTP com a API
+
+# ============================================================
+# 🔹 Entrada de teclado e eventos
+# ============================================================
+
+keyboard==0.13.5           # Automação e leitura de teclas do sistema
+
+# ============================================================
+# 🔹 Captura de tela ultrarrápida
+# ============================================================
+
+mss==9.0.1                 # Captura de tela rápida (usado na função localizar_template_rapido)
+
+# ============================================================
+# 🔹 Observações
+# ============================================================
+# - Este conjunto é estável para Python 3.13.9, testado com OpenCV e PyAutoGUI.
+# - Caso ocorra erro de compilação, instale o Visual Studio Build Tools:
+#   https://visualstudio.microsoft.com/visual-cpp-build-tools/
+#   e marque “Desktop development with C++” + “Windows 11 SDK”.
+# - Após instalar tudo, verifique com:
+#   python -c "import cv2, numpy, pandas, PIL; print('✅', cv2.__version__, numpy.__version__, pandas.__version__, PIL.__version__)"
+# ============================================================

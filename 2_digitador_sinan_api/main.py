@@ -4,6 +4,14 @@ from fastapi.openapi.utils import get_openapi
 from services.redcap_violencia import get_redcap_filas
 from services.update_status import atualizar_status, obter_status
 
+from pydantic import BaseModel # ADICIONADO: Para modelagem do corpo da requisição PATCH
+
+# --- SCHEMA DE ENTRADA CORRIGIDO (Pydantic Model) ---
+class NotificacaoUpdate(BaseModel):
+    """Modelo para receber o novo status via requisição PATCH."""
+    status: str
+# ---------------------------------------------------
+
 description = """
 ## 🚀 Digitador SINAN API
 
@@ -108,9 +116,23 @@ def listar_notificacoes():
     """
     return get_redcap_filas()
 
+# Mantenha o Pydantic Model inalterado:
+class NotificacaoUpdate(BaseModel):
+    """Modelo para receber o novo status via requisição PATCH."""
+    status: str
+
+# ... (outras funções GET)
+
 @app.patch("/notificacoes/{num_notificacao}", summary="Atualizar status da notificação", tags=["Notificações Gerais"])
-def patch_status_violencia(num_notificacao: str):
-    return atualizar_status(num_notificacao)
+def patch_status_violencia(num_notificacao: str, data: NotificacaoUpdate):
+    """
+    Atualiza o status de uma notificação.
+    
+    Recebe no corpo da requisição (JSON):
+    - status: O novo status, como 'erro_digitacao' ou 'concluido'.
+    """
+    # Chama o serviço, passando o num_notificacao e o status extraído do corpo (data.status)
+    return atualizar_status(num_notificacao, data.status)
   
 @app.get("/notificacoes/{num_notificacao}/status", summary="Obter status da notificação", tags=["Notificações Gerais"])
 def get_status_violencia(num_notificacao: str):

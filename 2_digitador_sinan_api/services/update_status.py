@@ -2,54 +2,40 @@
 # Este módulo 'database' deve conter a lógica para se conectar ao seu banco de dados (ex: PostgreSQL, MySQL, etc.).
 from database import get_connection
 
-def atualizar_status(num_notificacao: str, novo_status: str = "concluido"):
+def atualizar_status(num_notificacao: str, novo_status: str):
     """
     Atualiza o status de uma notificação específica no banco de dados.
-
-    Args:
-        num_notificacao (str): O número identificador da notificação a ser atualizada.
-        novo_status (str, optional): O novo status a ser atribuído. O valor padrão é "concluido".
-
-    Returns:
-        dict: Um dicionário contendo uma mensagem de sucesso ou um erro.
     """
-    # Obtém uma nova conexão com o banco de dados.
     conn = get_connection()
-    # Cria um cursor para executar comandos SQL.
     cur = conn.cursor()
 
     try:
-        # Executa o comando SQL UPDATE para alterar o status na tabela 'rpa_notificacoes'.
-        # A cláusula WHERE garante que apenas a notificação com o 'num_notificacao' correspondente seja atualizada.
-        # Usar parâmetros (%s) previne injeção de SQL.
+        # Usa o 'novo_status' fornecido pelo main.py
         cur.execute(
             "UPDATE rpa_notificacoes SET status = %s WHERE num_notificacao = %s",
             (novo_status, num_notificacao)
         )
 
-        # 'rowcount' retorna o número de linhas afetadas pelo último comando.
-        # Se nenhuma linha foi afetada, significa que a notificação não foi encontrada.
-        if cur.rowcount == 0:
-            # Desfaz a transação, embora nenhum dado tenha sido alterado. É uma boa prática.
+        if cur.rowcount > 0:
+            # Garante que a transação seja commitada se a atualização for bem-sucedida
+            conn.commit() 
+            return {"mensagem": f"Status da notificação {num_notificacao} atualizado para '{novo_status}'."}
+        else:
             conn.rollback()
-            # Retorna um dicionário com uma mensagem de erro.
             return {"erro": f"Notificação {num_notificacao} não encontrada."}
-
-        # Se a atualização foi bem-sucedida (pelo menos uma linha afetada),
-        # confirma a transação, salvando as alterações permanentemente no banco de dados.
-        conn.commit()
-
-        # Retorna uma mensagem de sucesso.
-        return {"mensagem": f"Status da notificação {num_notificacao} atualizado para '{novo_status}'."}
+            
+    except Exception as e:
+        # Captura e desfaz a transação em caso de erro no banco de dados
+        conn.rollback()
+        return {"erro": f"Erro ao atualizar status da notificação {num_notificacao}: {e}"}
         
     finally:
-        # O bloco 'finally' garante que o cursor e a conexão sejam sempre fechados,
-        # independentemente de ter ocorrido um erro ou não. Isso evita vazamento de recursos.
         if cur:
             cur.close()
         if conn:
             conn.close()
 
+# A função obter_status permanece inalterada, pois não é a causa do problema de atualização.
 
 def obter_status(num_notificacao: str):
     """

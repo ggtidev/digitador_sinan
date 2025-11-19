@@ -1,16 +1,48 @@
+# ==========================================================
+# File: utils.py
+# Versão Final - OpenCV + MSS + Log multilinha + Fluxo de erro completo
+# Autor: André Bezerra
+# Data: 18/11/2025
+# ==========================================================
+
 import pyautogui
 import time
 import json
 import os
+import cv2
+import mss
+import numpy as np
+import pandas as pd
 from datetime import datetime
 from dotenv import load_dotenv
-from logger import log_debug, log_erro
+from logger import log_debug, log_erro, log_info
+from api_client import registrar_erro
+
+# --- CONFIGURAÇÕES GERAIS ---
+pyautogui.FAILSAFE = True
+pyautogui.PAUSE = 0.2
+pyautogui.MINIMUM_CONFIDENCE = 0.8
 
 load_dotenv()
+
+# Caminhos absolutos
+IMAGENS_RPA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "imagens"))
+PASTA_ERROS = os.path.abspath(os.path.join(os.path.dirname(__file__), "erros"))
+RPA_LOG = os.path.abspath(os.path.join(os.path.dirname(__file__), "rpa_log.txt"))
+
+SAIR_IMG = os.path.join(IMAGENS_RPA_DIR, "sair.png")
+NAO_IMG = os.path.join(IMAGENS_RPA_DIR, "nao.png")
+
+os.makedirs(PASTA_ERROS, exist_ok=True)
+
+# ==========================================================
+# FUNÇÕES AUXILIARES
+# ==========================================================
 
 def load_json(filepath):
     with open(filepath, 'r', encoding='utf-8') as file:
         return json.load(file)
+
 
 def wait_and_click(image_path, timeout=10, intervalo=0.5, confidence=0.9):
     start_time = time.time()
@@ -22,13 +54,12 @@ def wait_and_click(image_path, timeout=10, intervalo=0.5, confidence=0.9):
                 log_debug(f"Encontrou e clicou na imagem: {image_path}")
                 return True
         except Exception as e:
-            log_erro(f"PyAutoGUI encontrou um erro ao processar a imagem {image_path}: {e}")
-            return False
-
+            log_erro(f"Erro pyautogui ao processar {image_path}: {e}")
         if time.time() - start_time > timeout:
             log_debug(f"Timeout ao procurar imagem: {image_path}")
             return False
         time.sleep(intervalo)
+
 
 def get_usuario_ativo():
     chave = os.getenv("USUARIO_LOGIN", "USUARIO1").upper()
@@ -36,12 +67,14 @@ def get_usuario_ativo():
     password = os.getenv(f"{chave}_PASSWORD")
     return username, password
 
+
 def formatar_unidade_saude(valor):
     if not valor:
         return ""
     partes = valor.strip().split()
     ultimas_duas = partes[-3:] if len(partes) >= 3 else partes
     return f"%{' '.join(ultimas_duas)}%"
+
 
 def calcular_idade_formatada(data_nascimento_str: str) -> int:
     try:
@@ -52,112 +85,168 @@ def calcular_idade_formatada(data_nascimento_str: str) -> int:
     except Exception:
         return 0
 
-# --- INÍCIO DA NOVA FUNÇÃO DE TRATAMENTO DE ERRO ---
 
-def verificar_erros_popup(erros_config, imagem_ok):
+# ==========================================================
+# FUNÇÃO DE ABERTURA DO AGRAVO
+# ==========================================================
+
+def selecionar_agravo_atual(nome_agravo: str):
+    pyautogui.moveTo(x=72, y=59, duration=1)
+    pyautogui.click(x=72, y=59)
+    time.sleep(1)
+    log_debug(f"Focado no menu para reabrir Notificação do Agravo: {nome_agravo}")
+    pyautogui.press("enter", clicks=2)
+    time.sleep(6)
+    log_info("Tela de Notificação Individual reaberta.")
+
+
+# ==========================================================
+# FUNÇÃO DE LOCALIZAÇÃO DE TEMPLATE
+# ==========================================================
+
+def localizar_template_rapido_pos(template_path, confidence=0.8):
+    try:
+        with mss.mss() as sct:
+            monitor = sct.monitors[1]
+            screenshot = np.array(sct.grab(monitor))
+            screenshot_gray = cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY)
+            template = cv2.imread(template_path, cv2.IMREAD_GRAYSCALE)
+            if template is None:
+                return None
+            res = cv2.matchTemplate(screenshot_gray, template, cv2.TM_CCOEFF_NORMED)
+            _, max_val, _, max_loc = cv2.minMaxLoc(res)
+            if max_val >= confidence:
+                h, w = template.shape
+                return (max_loc[0], max_loc[1], w, h)
+    except Exception as e:
+        log_erro(f"Erro ao localizar template {template_path}: {e}")
+    return None
+
+
+# ==========================================================
+# FUNÇÃO DE FECHAMENTO DE TELA DE ERRO
+# ==========================================================
+
+def fechar_tela_erro():
     """
-    Verifica se alguma imagem de erro conhecida está na tela.
-    Se encontrar, fecha o pop-up e retorna True.
+    Executa a sequência completa após encontrar um erro:
+    ESC → SAIR → NÃO → clique fixo → ENTER ×2 → espera 3s
     """
-    time.sleep(1) # Pequena pausa para a janela de erro aparecer
-    for nome_erro, caminho_imagem_erro in erros_config.items():
-        try:
-            if pyautogui.locateOnScreen(caminho_imagem_erro, confidence=0.8):
-                log_erro(f"ERRO DETECTADO: Pop-up '{nome_erro}' encontrado na tela.")
-                # Tira um screenshot do erro para análise
-                pasta_erros = os.path.join(os.path.dirname(__file__), "erros")
-                os.makedirs(pasta_erros, exist_ok=True)
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                screenshot_path = os.path.join(pasta_erros, f"erro_popup_{nome_erro}_{timestamp}.png")
-                pyautogui.screenshot(screenshot_path)
-                log_erro(f"Screenshot do erro salvo em: {screenshot_path}")
+    print("🧩 Executando sequência de fechamento: ESC → SAIR → NÃO → REINICIAR DIGITAÇÃO")
+    pyautogui.press('esc')
+    time.sleep(1)
 
-                # Tenta fechar o pop-up de erro clicando em OK
-                log_info("Tentando fechar o pop-up de erro...")
-                wait_and_click(imagem_ok, timeout=5)
-                time.sleep(1)
-                # Confirma que um erro foi encontrado e tratado
-                return True 
-        except Exception as e:
-            log_erro(f"Ocorreu um erro ao verificar a imagem do pop-up '{nome_erro}': {e}")
-            continue # Continua para a próxima imagem de erro
-            
-    # Se o loop terminar sem encontrar nenhum erro
-    return False
+    try:
+        sair = pyautogui.locateCenterOnScreen(SAIR_IMG, confidence=0.8)
+    except pyautogui.ImageNotFoundException:
+        sair = None
 
-# --- FIM DA NOVA FUNÇÃO ---
+    if sair:
+        pyautogui.click(sair)
+        print("   ✅ Botão 'Sair' clicado.")
+        time.sleep(1)
+    else:
+        print("   ⚠️ Botão 'Sair' não encontrado. Continuando fluxo...")
 
-#Criar uma função para analisar erro e passa para a próxima ficha
+    try:
+        nao = pyautogui.locateCenterOnScreen(NAO_IMG, confidence=0.8)
+    except pyautogui.ImageNotFoundException:
+        nao = None
 
- # 1- Buscar Imagens de possíveis Erros.
+    if nao:
+        pyautogui.click(nao)
+        print("   ✅ Botão 'Não' clicado (descartar alterações).")
+        time.sleep(1)
 
- # 2- erro 01( Atenção )AMARELO) Escolaridade incompatível com a idade preenchida
+        # Clique fixo para garantir foco na tela de Notificação Individual
+        pyautogui.click(x=395, y=229)
+        print("   🖱️ Clique fixo em (395, 229) para focar na tela de notificação individual.")
 
- # 3- erro 02 ( Atenção )AMARELO) Campo de preenchimento Obrigatório: Município de ocorrência
+        # Pressiona ENTER duas vezes
+        pyautogui.press('enter', presses=2, interval=0.5)
+        print("   ⌨️ Pressionado ENTER duas vezes para iniciar nova notificação.")
 
- # 4- erro 03 ( Informação )AZUL) Escolaridade incompatível com a idade preenchida
+        # Espera 3 segundos
+        time.sleep(3)
+        print("   ⏳ Aguardando 3 segundos para carregamento da nova ficha...")
+        print("   ✅ Pronto para iniciar a próxima notificação.\n")
 
- # 5- erro 04 ( POPUP)) Ao buscar o campo ele vem com o CNES e UNIDADE vazia.   
- # 
+    else:
+        print("   ⚠️ Botão 'Não' não encontrado. Continuando normalmente.")
 
-def verificar_e_tratar_erro(rpa_service, log_service):
+
+# ==========================================================
+# FUNÇÃO PRINCIPAL DE VERIFICAÇÃO E TRATAMENTO DE ERRO
+# ==========================================================
+
+def verificar_e_tratar_erro(num_notificacao: str, agravo: str, tem_proxima=True):
     """
-    Verifica se algum pop-up de erro conhecido está na tela.
-    Se encontrar, trata o erro (fecha a digitação) e retorna True.
+    Detecta pop-ups de erro e realiza o fluxo de correção automatizado.
+    Retorna True se erro tratado e precisa reiniciar digitação.
     """
-    # Lista de caminhos para os templates de erro
     ERROS_TEMPLATES = [
-        'imagens/erro-01-atencao.png',
-        'imagens/erro-02-atencao.png',
-        'imagens/erro-03-informacoes.png',
-        'imagens/erro-04-popup.png',
-        'imagens/erro-05-intem_ja_cadastrado.png',
-        'imagens/erro-05-popup.png',
+        os.path.join(IMAGENS_RPA_DIR, f) for f in [
+            'erro-01-atencao.png','erro-02-atencao.png','erro-03-informacoes.png',
+            'erro-04-popup.png','erro-05-intem_ja_cadastrado.png','erro-05-popup.png',
+            'erro-06-opcao-invalida.png','erro-07-atencao_uf.png','erro-08-atencao_so_recebe_valores_numericos.png',
+            'erro-10-dt_nascimento_ou_idade_obrigatorio.png','erro-11-dt_invalida.png','erro-12-idade_inferior_ou_superior.png'
+        ]
     ]
 
     for template in ERROS_TEMPLATES:
         try:
-            # Use o método do seu RPA para buscar a imagem na tela
-            posicao = rpa_service.find_image_on_screen(template, confidence=0.8)
-            
-            if posicao:
-                # Log do erro encontrado
-                log_service.log_erro_rpa(f"Erro Visual Detectado: {template}. Fechando notificação atual.")
-                
-                # Ação de Fechar a Digitação (depende da sua interface)
-                # 1. Clicar no botão 'OK' ou 'Não' (se for pop-up)
-                if 'popup' in template or 'atencao' in template:
-                    # Assumindo que a função resolve o pop-up (clica em OK/Não)
-                    rpa_service.handle_popup_error(template) 
-                
-                # 2. Clicar no botão 'Sair' ou 'Cancelar' da tela principal da notificação
-                rpa_service.clicar_no_botao_sair() 
-                
-                # 3. Confirma o descarte da notificação
-                rpa_service.clicar_em_descartar_alteracoes() 
-                
-                return True  # Erro tratado, deve começar uma nova notificação
-        
+            inicio = time.time()
+            pos = localizar_template_rapido_pos(template, confidence=0.8)
+            duracao = round(time.time() - inicio, 2)
+
+            if pos:
+                template_nome = os.path.basename(template)
+                log_info(f"⚠️ Erro detectado: {template_nome}")
+
+                # Screenshot e log
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                screenshot_filename = f"erro_{num_notificacao}_{template_nome}_{timestamp}.png"
+                screenshot_path = os.path.join(PASTA_ERROS, screenshot_filename)
+                pyautogui.screenshot(screenshot_path)
+
+                with open(RPA_LOG, 'a', encoding='utf-8') as log_file:
+                    log_file.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [INFO] - Template: {template_nome}\n")
+                    log_file.write(f"   Caminho: {template}\n")
+                    log_file.write(f"   Tempo de processamento: {duracao}s\n")
+                    log_file.write(f"   Resultado: ENCONTRADO\n")
+
+                registrar_erro(num_notificacao)
+                log_info(f"Erro registrado para notificação {num_notificacao} na API.")
+
+                # Clique + ESC + fechamento
+                #VERIFICAR ISSO AQUI: DEPOIS QUE ELE ABRE UMA NOVA FICHA
+                x, y, w, h = pos
+                pyautogui.click(x + w // 2, y + h // 2)
+                pyautogui.press('esc')
+                time.sleep(0.5)
+
+                fechar_tela_erro()
+
+                # Reabre agravo se houver próxima ficha
+                if tem_proxima:
+                    selecionar_agravo_atual(agravo)
+
+                return True
+
         except Exception as e:
-            # Continua buscando, mas registra a exceção
-            log_service.log_warning(f"Exceção ao buscar template {template}: {e}")
+            log_erro(f"Falha ao tratar template {template}: {e}")
+            continue
 
-    return False # Nenhum erro encontrado    
+    return False
 
 
+# ==========================================================
+# FUNÇÃO OPCIONAL PARA LOGAR POSIÇÃO DO MOUSE
+# ==========================================================
 
-# criar um arquivo de log com as posicoes do mouse.    
 def log_posicoes_mouse(log_filepath, intervalo=1, duracao=60):
-    """
-    Registra as posições do mouse em um arquivo de log por um determinado período.
-    
-    Args:
-        log_filepath (str): Caminho do arquivo de log onde as posições serão salvas.
-        intervalo (int): Intervalo em segundos entre cada registro de posição.
-        duracao (int): Duração total em segundos para registrar as posições.
-    """
     end_time = time.time() + duracao
-    with open(log_filepath, 'w') as log_file:
+    with open(log_filepath, 'a', encoding='utf-8') as log_file:
         log_file.write("Timestamp, X, Y\n")
         while time.time() < end_time:
             x, y = pyautogui.position()
